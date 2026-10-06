@@ -8,10 +8,20 @@ export default async function HomePage() {
 
   const { data: apps } = await supabase
     .from("apps")
-    .select("*")
+    .select("*, categories(name, slug)")
     .eq("status", "approved")
     .order("downloads_count", { ascending: false })
     .limit(6);
+
+  const { data: categories } = await supabase
+    .from("categories")
+    .select("id, name, slug")
+    .order("name");
+
+  const categoryList =
+    categories && categories.length > 0
+      ? categories.map((c) => c.name)
+      : ["Games", "Social", "Education", "Business", "Tools", "Entertainment"];
 
   return (
     <div className="space-y-10">
@@ -44,7 +54,7 @@ export default async function HomePage() {
       <section>
         <h2 className="text-2xl font-bold text-gray-900 mb-4">Categories</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-          {["Games", "Social", "Education", "Business", "Tools", "Entertainment"].map(
+          {categoryList.map(
             (cat) => (
               <Link
                 key={cat}
@@ -88,15 +98,16 @@ export default async function HomePage() {
                 className="group bg-white border border-gray-200 rounded-3xl p-5 hover:shadow-xl hover:border-blue-200 hover:-translate-y-0.5 transition-all duration-200"
               >
                 <div className="flex gap-4">
-                  <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-gradient-to-br from-gray-100 to-gray-200 flex-shrink-0 overflow-hidden shadow-md ring-1 ring-black/5 group-hover:shadow-lg transition">
+                  <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-[22px] bg-gradient-to-br from-gray-100 to-gray-200 flex-shrink-0 overflow-hidden shadow-lg ring-1 ring-black/5 group-hover:shadow-xl transition">
                     {app.icon_url ? (
                       <img
                         src={app.icon_url}
                         alt={app.name}
                         className="w-full h-full object-cover"
+                        loading="lazy"
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-3xl text-gray-400">
+                      <div className="w-full h-full flex items-center justify-center text-4xl text-gray-400">
                         📱
                       </div>
                     )}

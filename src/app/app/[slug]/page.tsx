@@ -72,7 +72,7 @@ export default async function AppDetailsPage({
         <div className="p-6 md:p-10">
           <div className="flex flex-col sm:flex-row gap-6 md:gap-8">
             {/* Big Icon */}
-            <div className="w-28 h-28 sm:w-36 sm:h-36 md:w-44 md:h-44 rounded-[28px] bg-gradient-to-br from-gray-100 to-gray-200 flex-shrink-0 overflow-hidden shadow-lg ring-1 ring-black/5">
+            <div className="w-32 h-32 sm:w-40 sm:h-40 md:w-48 md:h-48 rounded-[28px] bg-gradient-to-br from-gray-100 to-gray-200 flex-shrink-0 overflow-hidden shadow-xl ring-1 ring-black/5">
               {app.icon_url ? (
                 <img
                   src={app.icon_url}

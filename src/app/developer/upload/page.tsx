@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import ProgressBar from "@/components/ProgressBar";
@@ -63,6 +63,8 @@ export default function UploadAppPage() {
   const [packageName, setPackageName] = useState("");
   const [versionName, setVersionName] = useState("");
   const [versionCode, setVersionCode] = useState("");
+  const [categoryId, setCategoryId] = useState("");
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const [apkFile, setApkFile] = useState<File | null>(null);
   const [iconFile, setIconFile] = useState<File | null>(null);
   const [iconPreview, setIconPreview] = useState<string | null>(null);
@@ -79,6 +81,14 @@ export default function UploadAppPage() {
   const [progressTotal, setProgressTotal] = useState(0);
 
   const iconInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from("categories").select("id, name").order("name");
+      if (data) setCategories(data);
+    })();
+  }, []);
+
   const ssInputRef = useRef<HTMLInputElement>(null);
 
   const handleIconChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -126,6 +136,18 @@ export default function UploadAppPage() {
         return;
       }
 
+      if (!iconFile) {
+        setError("Tafadhali chagua icon ya app (lazima).");
+        setLoading(false);
+        return;
+      }
+
+      if (!categoryId) {
+        setError("Tafadhali chagua category.");
+        setLoading(false);
+        return;
+      }
+
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -165,30 +187,29 @@ export default function UploadAppPage() {
         .from("apps")
         .getPublicUrl(apkFileName);
 
-      // --- 2. Upload Icon ---
-      let iconUrl: string | null = null;
-      if (iconFile) {
-        setProgressLabel("Inapakia Icon...");
-        setProgressPct(0);
-        const iconFileName = `${user.id}/${slug}-icon-${Date.now()}.png`;
-        await uploadWithProgress(
-          supabaseUrl,
-          anonKey,
-          "screenshots",
-          iconFileName,
-          iconFile,
-          token,
-          (loaded, total) => {
-            setProgressLoaded(loaded);
-            setProgressTotal(total);
-            setProgressPct((loaded / total) * 100);
-          }
-        );
-        const { data: iconUrlData } = supabase.storage
-          .from("screenshots")
-          .getPublicUrl(iconFileName);
-        iconUrl = iconUrlData.publicUrl;
-      }
+      // --- 2. Upload Icon (required) ---
+      setProgressLabel("Inapakia Icon...");
+      setProgressPct(0);
+      const iconExt = iconFile.name.split(".").pop()?.toLowerCase() || "png";
+      const iconFileName = `${user.id}/${slug}-icon-${Date.now()}.${iconExt}`;
+      await uploadWithProgress(
+        supabaseUrl,
+        anonKey,
+        "screenshots",
+        iconFileName,
+        iconFile,
+        token,
+        (loaded, total) => {
+          setProgressLoaded(loaded);
+          setProgressTotal(total);
+          setProgressPct((loaded / total) * 100);
+        }
+      );
+      const { data: iconUrlData } = supabase.storage
+        .from("screenshots")
+        .getPublicUrl(iconFileName);
+      const iconUrl = iconUrlData.publicUrl;
+      if (!iconUrl) throw new Error("Icon URL haikupatikana");
 
       // --- 3. Insert app row ---
       setProgressLabel("Inahifadhi taarifa...");
@@ -205,6 +226,7 @@ export default function UploadAppPage() {
           package_name: packageName,
           version_name: versionName || "1.0",
           version_code: parseInt(versionCode) || 1,
+          category_id: categoryId || null,
           apk_url: apkUrlData.publicUrl,
           apk_size: apkFile.size,
           icon_url: iconUrl,
@@ -346,7 +368,35 @@ export default function UploadAppPage() {
           />
         </div>
 
+
+        {/* Category */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Category *
+          </label>
+          <select
+            value={categoryId}
+            onChange={(e) => setCategoryId(e.target.value)}
+            required
+            disabled={loading}
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+          >
+            <option value="">-- Chagua category --</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          {categories.length === 0 && (
+            <p className="text-xs text-amber-600 mt-1">
+              Hakuna categories. Endesha SQL ya categories kwenye Supabase.
+            </p>
+          )}
+        </div>
+
         {/* Package & Version */}
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
