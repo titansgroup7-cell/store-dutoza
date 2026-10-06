@@ -16,7 +16,7 @@ export default function RootLayout({
     <html lang="sw">
       <body className="antialiased bg-gray-50 min-h-screen">
         <Navbar />
-        <main className="container mx-auto px-4 py-6">{children}</main>
+        <main className="container mx-auto px-3 py-3 sm:py-4">{children}</main>
       </body>
     </html>
   );

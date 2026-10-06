@@ -68,30 +68,29 @@ export default async function AppsPage({
 
   const formatDownloads = (n: number) => {
     if (!n) return "0";
-    if (n >= 1000000) return (n / 1000000).toFixed(1) + "M+";
-    if (n >= 1000) return (n / 1000).toFixed(1) + "K+";
+    if (n >= 1000000) return (n / 1000000).toFixed(1) + "M";
+    if (n >= 1000) return (n / 1000).toFixed(1) + "K";
     return String(n);
   };
 
   return (
     <div>
-      <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
-        {selectedCategoryName
-          ? `Category: ${selectedCategoryName}`
-          : "Apps Zote"}
+      <h1 className="text-lg sm:text-xl font-bold text-gray-900 mb-0.5">
+        {selectedCategoryName ? selectedCategoryName : "Apps Zote"}
       </h1>
-      <p className="text-gray-500 mb-6">
+      <p className="text-gray-500 text-xs mb-3">
         {selectedCategoryName
           ? `Apps za ${selectedCategoryName}`
           : "Pakua apps bora za Dutoza"}
       </p>
 
-      <div className="flex flex-wrap gap-2 mb-8">
+      {/* Compact category chips */}
+      <div className="flex gap-1.5 overflow-x-auto pb-2 mb-3 scrollbar-hide -mx-1 px-1">
         <Link
           href="/apps"
-          className={`px-4 py-2 rounded-full text-sm font-medium transition ${
+          className={`flex-shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium transition ${
             !categorySlug
-              ? "bg-blue-600 text-white shadow-md"
+              ? "bg-blue-600 text-white"
               : "bg-white border border-gray-200 text-gray-700 hover:border-blue-400"
           }`}
         >
@@ -106,9 +105,9 @@ export default async function AppsPage({
             <Link
               key={cat.id}
               href={`/apps?category=${encodeURIComponent(slug)}`}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition ${
+              className={`flex-shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium transition ${
                 active
-                  ? "bg-blue-600 text-white shadow-md"
+                  ? "bg-blue-600 text-white"
                   : "bg-white border border-gray-200 text-gray-700 hover:border-blue-400"
               }`}
             >
@@ -119,30 +118,30 @@ export default async function AppsPage({
       </div>
 
       {!filteredApps || filteredApps.length === 0 ? (
-        <div className="bg-white border border-gray-200 rounded-3xl p-16 text-center">
-          <div className="text-5xl mb-4">📱</div>
-          <p className="text-gray-500 text-lg">
+        <div className="bg-white border border-gray-200 rounded-xl p-8 text-center">
+          <div className="text-2xl mb-2">📱</div>
+          <p className="text-gray-500 text-xs">
             {selectedCategoryName
-              ? `Hakuna apps katika category "${selectedCategoryName}".`
+              ? `Hakuna apps katika "${selectedCategoryName}".`
               : "Bado hakuna apps zilizoidhinishwa."}
           </p>
           <Link
             href="/developer/upload"
-            className="inline-block mt-4 text-blue-600 font-medium text-sm hover:underline"
+            className="inline-block mt-2 text-blue-600 font-medium text-[11px] hover:underline"
           >
             Pakia app →
           </Link>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
           {filteredApps.map((app: any) => (
             <Link
               key={app.id}
               href={`/app/${app.slug}`}
-              className="group bg-white border border-gray-200 rounded-3xl p-5 hover:shadow-xl hover:border-blue-200 hover:-translate-y-0.5 transition-all duration-200"
+              className="group bg-white border border-gray-200 rounded-xl p-2.5 hover:shadow-md hover:border-blue-200 transition-all"
             >
-              <div className="flex gap-4">
-                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl bg-gray-100 flex-shrink-0 overflow-hidden shadow-sm ring-1 ring-black/5">
+              <div className="flex gap-2.5">
+                <div className="w-11 h-11 rounded-lg bg-gray-100 flex-shrink-0 overflow-hidden ring-1 ring-black/5">
                   {app.icon_url ? (
                     <img
                       src={app.icon_url}
@@ -150,34 +149,32 @@ export default async function AppsPage({
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-3xl text-gray-400">
+                    <div className="w-full h-full flex items-center justify-center text-lg text-gray-400">
                       📱
                     </div>
                   )}
                 </div>
 
-                <div className="flex-1 min-w-0 py-0.5">
-                  <h3 className="font-semibold text-gray-900 text-[15px] truncate group-hover:text-blue-600 transition">
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-gray-900 text-[13px] leading-tight truncate group-hover:text-blue-600 transition">
                     {app.name}
                   </h3>
-                  <p className="text-sm text-gray-500 mt-1 line-clamp-2 leading-snug">
+                  <p className="text-[11px] text-gray-500 mt-0.5 line-clamp-1">
                     {app.short_description}
                   </p>
-                  <div className="flex items-center gap-2 mt-3 flex-wrap">
+                  <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                     {app.categories?.name && (
-                      <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                      <span className="text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded-full font-medium">
                         {app.categories.name}
                       </span>
                     )}
-                    <span className="inline-flex items-center gap-1 text-sm font-medium">
-                      <span className="text-yellow-500">★</span>
-                      <span className="text-gray-800">
-                        {Number(app.rating_average || 0).toFixed(1)}
-                      </span>
+                    <span className="inline-flex items-center gap-0.5 text-[11px] font-medium text-gray-700">
+                      <span className="text-yellow-500 text-[10px]">★</span>
+                      {Number(app.rating_average || 0).toFixed(1)}
                     </span>
-                    <span className="text-gray-300">·</span>
-                    <span className="text-sm text-gray-500">
-                      {formatDownloads(app.downloads_count || 0)} downloads
+                    <span className="text-gray-300 text-[10px]">·</span>
+                    <span className="text-[11px] text-gray-500">
+                      {formatDownloads(app.downloads_count || 0)}
                     </span>
                   </div>
                 </div>
