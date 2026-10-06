@@ -2,12 +2,9 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import ShareButton from "@/components/ShareButton";
-<<<<<<< HEAD
 import ScreenshotGallery from "@/components/ScreenshotGallery";
 import ReviewForm from "@/components/ReviewForm";
 import DownloadButton from "@/components/DownloadButton";
-=======
->>>>>>> 3144684f566bd4a1c6c5bbbf7f0aa6928ac0eb1b
 
 export const dynamic = "force-dynamic";
 
@@ -89,7 +86,6 @@ export default async function AppDetailsPage({
               )}
             </div>
 
-<<<<<<< HEAD
             {/* Info */}
             <div className="flex-1 min-w-0">
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 tracking-tight">
@@ -131,21 +127,6 @@ export default async function AppDetailsPage({
                   text={app.short_description || ""}
                 />
               </div>
-=======
-            {/* Download Button */}
-            <div className="mt-5 flex flex-wrap gap-3">
-              <a
-                href={app.apk_url}
-                download
-                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-3 rounded-full transition inline-flex items-center gap-2"
-              >
-                Pakua APK
-              </a>
-              <ShareButton
-                title={app.name}
-                text={app.short_description || ""}
-              />
->>>>>>> 3144684f566bd4a1c6c5bbbf7f0aa6928ac0eb1b
             </div>
           </div>
         </div>
