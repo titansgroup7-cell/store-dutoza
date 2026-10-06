@@ -369,28 +369,40 @@ export default function UploadAppPage() {
         </div>
 
 
-        {/* Category */}
+        {/* Category - custom chips (si browser select) */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
             Category *
           </label>
-          <select
-            value={categoryId}
-            onChange={(e) => setCategoryId(e.target.value)}
-            required
-            disabled={loading}
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-          >
-            <option value="">-- Chagua category --</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-          {categories.length === 0 && (
-            <p className="text-xs text-amber-600 mt-1">
+          {categories.length === 0 ? (
+            <p className="text-xs text-amber-600">
               Hakuna categories. Endesha SQL ya categories kwenye Supabase.
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {categories.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  disabled={loading}
+                  onClick={() => setCategoryId(c.id)}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition border ${
+                    categoryId === c.id
+                      ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                      : "bg-white text-gray-700 border-gray-200 hover:border-blue-400"
+                  }`}
+                >
+                  {c.name}
+                </button>
+              ))}
+            </div>
+          )}
+          {categoryId && (
+            <p className="text-xs text-gray-500 mt-2">
+              Umechagua:{" "}
+              <span className="font-medium text-blue-600">
+                {categories.find((c) => c.id === categoryId)?.name}
+              </span>
             </p>
           )}
         </div>

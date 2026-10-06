@@ -72,7 +72,7 @@ export default async function AppDetailsPage({
         <div className="p-6 md:p-10">
           <div className="flex flex-col sm:flex-row gap-6 md:gap-8">
             {/* Big Icon */}
-            <div className="w-32 h-32 sm:w-40 sm:h-40 md:w-48 md:h-48 rounded-[28px] bg-gradient-to-br from-gray-100 to-gray-200 flex-shrink-0 overflow-hidden shadow-xl ring-1 ring-black/5">
+            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-gray-100 flex-shrink-0 overflow-hidden shadow-md ring-1 ring-black/5">
               {app.icon_url ? (
                 <img
                   src={app.icon_url}
@@ -88,7 +88,7 @@ export default async function AppDetailsPage({
 
             {/* Info */}
             <div className="flex-1 min-w-0">
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 tracking-tight">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
                 {app.name}
               </h1>
               <p className="text-blue-600 font-medium mt-1 text-sm sm:text-base">
@@ -121,7 +121,7 @@ export default async function AppDetailsPage({
 
               {/* Actions */}
               <div className="mt-6 flex flex-wrap items-start gap-3">
-                <DownloadButton apkUrl={app.apk_url} appName={app.name} />
+                <DownloadButton apkUrl={app.apk_url} appName={app.name} appId={app.id} />
                 <ShareButton
                   title={app.name}
                   text={app.short_description || ""}

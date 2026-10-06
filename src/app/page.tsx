@@ -98,7 +98,7 @@ export default async function HomePage() {
                 className="group bg-white border border-gray-200 rounded-3xl p-5 hover:shadow-xl hover:border-blue-200 hover:-translate-y-0.5 transition-all duration-200"
               >
                 <div className="flex gap-4">
-                  <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-[22px] bg-gradient-to-br from-gray-100 to-gray-200 flex-shrink-0 overflow-hidden shadow-lg ring-1 ring-black/5 group-hover:shadow-xl transition">
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl bg-gray-100 flex-shrink-0 overflow-hidden shadow-sm ring-1 ring-black/5">
                     {app.icon_url ? (
                       <img
                         src={app.icon_url}

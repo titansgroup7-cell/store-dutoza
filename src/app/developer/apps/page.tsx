@@ -63,7 +63,7 @@ export default async function MyAppsPage() {
               key={app.id}
               className="bg-white border border-gray-200 rounded-2xl p-5 flex items-center gap-4"
             >
-              <div className="w-16 h-16 bg-gray-100 rounded-2xl overflow-hidden flex-shrink-0 shadow-md">
+              <div className="w-12 h-12 bg-gray-100 rounded-xl overflow-hidden flex-shrink-0">
                 {app.icon_url ? (
                   <img
                     src={app.icon_url}

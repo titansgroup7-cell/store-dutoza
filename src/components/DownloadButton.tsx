@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import ProgressBar from "./ProgressBar";
+import { createClient } from "@/lib/supabase/client";
 
 function formatMB(bytes: number) {
   return (bytes / 1024 / 1024).toFixed(2);
@@ -10,9 +11,11 @@ function formatMB(bytes: number) {
 export default function DownloadButton({
   apkUrl,
   appName,
+  appId,
 }: {
   apkUrl: string;
   appName: string;
+  appId?: string;
 }) {
   const [status, setStatus] = useState<
     "idle" | "downloading" | "paused" | "done" | "error"
@@ -28,8 +31,35 @@ export default function DownloadButton({
   const totalRef = useRef(0);
   const pausedRef = useRef(false);
   const abortedRef = useRef(false);
+  const countedRef = useRef(false);
 
-  const finishDownload = () => {
+  const incrementDownloadCount = async () => {
+    if (!appId || countedRef.current) return;
+    countedRef.current = true;
+    try {
+      const supabase = createClient();
+      // RPC (SECURITY DEFINER) - works even for anon
+      const { error } = await supabase.rpc("increment_app_downloads", {
+        app_uuid: appId,
+      });
+      if (error) {
+        // fallback try direct update
+        const { data } = await supabase
+          .from("apps")
+          .select("downloads_count")
+          .eq("id", appId)
+          .single();
+        await supabase
+          .from("apps")
+          .update({ downloads_count: (data?.downloads_count || 0) + 1 })
+          .eq("id", appId);
+      }
+    } catch {
+      // ignore count errors
+    }
+  };
+
+  const finishDownload = async () => {
     const blob = new Blob(chunksRef.current as BlobPart[]);
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -39,6 +69,7 @@ export default function DownloadButton({
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
+    await incrementDownloadCount();
     setStatus("done");
     setPercent(100);
     setTimeout(() => {
@@ -48,6 +79,7 @@ export default function DownloadButton({
       setTotal(0);
       chunksRef.current = [];
       receivedRef.current = 0;
+      countedRef.current = false;
     }, 2000);
   };
 
@@ -72,7 +104,7 @@ export default function DownloadButton({
         const { done, value } = await reader.read();
         if (done) {
           readerRef.current = null;
-          finishDownload();
+          await finishDownload();
           return;
         }
 
@@ -109,6 +141,7 @@ export default function DownloadButton({
     receivedRef.current = 0;
     pausedRef.current = false;
     abortedRef.current = false;
+    countedRef.current = false;
 
     try {
       const res = await fetch(apkUrl);
@@ -127,6 +160,8 @@ export default function DownloadButton({
     } catch (err: any) {
       setError(err.message || "Download imeshindikana");
       setStatus("error");
+      // Fallback: still count + open
+      await incrementDownloadCount();
       window.open(apkUrl, "_blank");
     }
   };
@@ -170,7 +205,7 @@ export default function DownloadButton({
           <button
             type="button"
             onClick={startDownload}
-            className="bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-semibold px-10 py-3.5 rounded-full transition shadow-md shadow-blue-600/25 text-base"
+            className="bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-semibold px-8 py-2.5 rounded-full transition text-sm"
           >
             Pakua APK
           </button>
@@ -180,7 +215,7 @@ export default function DownloadButton({
               <button
                 type="button"
                 onClick={handlePause}
-                className="bg-amber-500 hover:bg-amber-600 text-white font-semibold px-6 py-3.5 rounded-full transition text-base"
+                className="bg-amber-500 hover:bg-amber-600 text-white font-semibold px-5 py-2.5 rounded-full transition text-sm"
               >
                 Pause
               </button>
@@ -189,7 +224,7 @@ export default function DownloadButton({
               <button
                 type="button"
                 onClick={handleResume}
-                className="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-3.5 rounded-full transition text-base"
+                className="bg-green-600 hover:bg-green-700 text-white font-semibold px-5 py-2.5 rounded-full transition text-sm"
               >
                 Resume
               </button>
@@ -197,7 +232,7 @@ export default function DownloadButton({
             <button
               type="button"
               onClick={handleStop}
-              className="bg-red-500 hover:bg-red-600 text-white font-semibold px-6 py-3.5 rounded-full transition text-base"
+              className="bg-red-500 hover:bg-red-600 text-white font-semibold px-5 py-2.5 rounded-full transition text-sm"
             >
               Stop
             </button>
