@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import ShareButton from "@/components/ShareButton";
 
 export const dynamic = "force-dynamic";
 
@@ -77,20 +78,10 @@ export default async function AppDetailsPage({
               >
                 Pakua APK
               </a>
-              <button
-                onClick={() => {
-                  if (navigator.share) {
-                    navigator.share({
-                      title: app.name,
-                      text: app.short_description,
-                      url: window.location.href,
-                    });
-                  }
-                }}
-                className="border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium px-6 py-3 rounded-full transition"
-              >
-                Share
-              </button>
+              <ShareButton
+                title={app.name}
+                text={app.short_description || ""}
+              />
             </div>
           </div>
         </div>
