@@ -33,20 +33,20 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="max-w-md mx-auto mt-10">
-      <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Ingia</h1>
-        <p className="text-gray-500 mb-6">Karibu tena kwenye Store Dutoza</p>
+    <div className="max-w-md mx-auto mt-6">
+      <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+        <h1 className="text-lg font-bold text-gray-900 mb-1">Ingia</h1>
+        <p className="text-gray-500 text-xs mb-4">Karibu tena kwenye Store Dutoza</p>
 
         {error && (
-          <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg mb-4">
+          <div className="bg-red-50 text-red-600 text-xs p-2.5 rounded-lg mb-3">
             {error}
           </div>
         )}
 
-        <form onSubmit={handleLogin} className="space-y-4">
+        <form onSubmit={handleLogin} className="space-y-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-[11px] font-medium text-gray-600 mb-0.5">
               Email
             </label>
             <input
@@ -54,21 +54,29 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
               placeholder="email@example.com"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Password
-            </label>
+            <div className="flex items-center justify-between mb-0.5">
+              <label className="block text-[11px] font-medium text-gray-600">
+                Password
+              </label>
+              <Link
+                href="/forgot-password"
+                className="text-[11px] text-blue-600 hover:underline"
+              >
+                Umesahau?
+              </Link>
+            </div>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
               placeholder="••••••••"
             />
           </div>
@@ -76,16 +84,26 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-3 rounded-xl transition"
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-2 rounded-full text-xs transition"
           >
             {loading ? "Inaingia..." : "Ingia"}
           </button>
         </form>
 
-        <p className="text-center text-sm text-gray-500 mt-6">
+        <p className="text-center text-[11px] text-gray-500 mt-4">
           Huna account?{" "}
           <Link href="/register" className="text-blue-600 font-medium">
             Jisajili
+          </Link>
+        </p>
+        <p className="text-center text-[10px] text-gray-400 mt-2">
+          Kwa kuingia unakubali{" "}
+          <Link href="/terms" className="text-blue-600 hover:underline">
+            Masharti
+          </Link>{" "}
+          na{" "}
+          <Link href="/privacy" className="text-blue-600 hover:underline">
+            Faragha
           </Link>
         </p>
       </div>

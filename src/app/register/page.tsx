@@ -119,6 +119,16 @@ export default function RegisterPage() {
             Ingia
           </Link>
         </p>
+        <p className="text-center text-[10px] text-gray-400 mt-2">
+          Kwa kujisajili unakubali{" "}
+          <Link href="/terms" className="text-blue-600 hover:underline">
+            Masharti
+          </Link>{" "}
+          na{" "}
+          <Link href="/privacy" className="text-blue-600 hover:underline">
+            Faragha
+          </Link>
+        </p>
       </div>
     </div>
   );

@@ -22,15 +22,18 @@ function uploadWithProgress(
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     const url = `${supabaseUrl}/storage/v1/object/${bucket}/${path}`;
+
     xhr.open("POST", url);
     xhr.setRequestHeader("Authorization", `Bearer ${accessToken}`);
     xhr.setRequestHeader("apikey", anonKey);
     xhr.setRequestHeader("x-upsert", "true");
+
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) {
         onProgress(e.loaded, e.total);
       }
     };
+
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
         resolve();
@@ -44,6 +47,7 @@ function uploadWithProgress(
         reject(new Error(msg));
       }
     };
+
     xhr.onerror = () => reject(new Error("Network error during upload"));
     xhr.send(file);
   });
@@ -61,14 +65,11 @@ export default function UploadAppPage() {
   const [versionCode, setVersionCode] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
-  const [isCategoryOpen, setIsCategoryOpen] = useState(false);
-
   const [apkFile, setApkFile] = useState<File | null>(null);
   const [iconFile, setIconFile] = useState<File | null>(null);
   const [iconPreview, setIconPreview] = useState<string | null>(null);
   const [screenshotFiles, setScreenshotFiles] = useState<File[]>([]);
   const [screenshotPreviews, setScreenshotPreviews] = useState<string[]>([]);
-
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -80,30 +81,15 @@ export default function UploadAppPage() {
   const [progressTotal, setProgressTotal] = useState(0);
 
   const iconInputRef = useRef<HTMLInputElement>(null);
-  const ssInputRef = useRef<HTMLInputElement>(null);
-  const categoryRef = useRef<HTMLDivElement>(null);
 
-  // Fetch categories
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
-        .from("categories")
-        .select("id, name")
-        .order("name");
+      const { data } = await supabase.from("categories").select("id, name").order("name");
       if (data) setCategories(data);
     })();
   }, []);
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (categoryRef.current && !categoryRef.current.contains(e.target as Node)) {
-        setIsCategoryOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  const ssInputRef = useRef<HTMLInputElement>(null);
 
   const handleIconChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
@@ -165,7 +151,6 @@ export default function UploadAppPage() {
       const {
         data: { session },
       } = await supabase.auth.getSession();
-
       const token = session?.access_token;
       if (!token) {
         setError("Session imeisha. Ingia tena.");
@@ -181,10 +166,9 @@ export default function UploadAppPage() {
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/(^-|-$)/g, "");
 
-      // --- 1. Upload APK ---
+      // --- 1. Upload APK with progress ---
       setProgressLabel("Inapakia APK...");
       const apkFileName = `${user.id}/${slug}-${versionName || "1.0"}.apk`;
-
       await uploadWithProgress(
         supabaseUrl,
         anonKey,
@@ -203,13 +187,11 @@ export default function UploadAppPage() {
         .from("apps")
         .getPublicUrl(apkFileName);
 
-      // --- 2. Upload Icon ---
+      // --- 2. Upload Icon (required) ---
       setProgressLabel("Inapakia Icon...");
       setProgressPct(0);
-
       const iconExt = iconFile.name.split(".").pop()?.toLowerCase() || "png";
       const iconFileName = `${user.id}/${slug}-icon-${Date.now()}.${iconExt}`;
-
       await uploadWithProgress(
         supabaseUrl,
         anonKey,
@@ -223,15 +205,13 @@ export default function UploadAppPage() {
           setProgressPct((loaded / total) * 100);
         }
       );
-
       const { data: iconUrlData } = supabase.storage
         .from("screenshots")
         .getPublicUrl(iconFileName);
-
       const iconUrl = iconUrlData.publicUrl;
       if (!iconUrl) throw new Error("Icon URL haikupatikana");
 
-      // --- 3. Insert app ---
+      // --- 3. Insert app row ---
       setProgressLabel("Inahifadhi taarifa...");
       setProgressPct(90);
 
@@ -261,11 +241,12 @@ export default function UploadAppPage() {
       if (screenshotFiles.length > 0 && insertedApp?.id) {
         for (let i = 0; i < screenshotFiles.length; i++) {
           const file = screenshotFiles[i];
-          setProgressLabel(`Inapakia Screenshot ${i + 1}/${screenshotFiles.length}...`);
+          setProgressLabel(
+            `Inapakia Screenshot ${i + 1}/${screenshotFiles.length}...`
+          );
           setProgressPct(0);
 
           const ssName = `${user.id}/${slug}-ss-${i}-${Date.now()}.jpg`;
-
           await uploadWithProgress(
             supabaseUrl,
             anonKey,
@@ -295,7 +276,6 @@ export default function UploadAppPage() {
       setProgressPct(100);
       setProgressLabel("Imekamilika!");
       setSuccess(true);
-
       setTimeout(() => {
         router.push("/developer/apps");
       }, 2000);
@@ -305,8 +285,6 @@ export default function UploadAppPage() {
       setLoading(false);
     }
   };
-
-  const selectedCategoryName = categories.find((c) => c.id === categoryId)?.name;
 
   return (
     <div className="max-w-2xl mx-auto pb-12">
@@ -333,7 +311,9 @@ export default function UploadAppPage() {
           <ProgressBar
             percent={progressPct}
             loadedMB={formatMB(progressLoaded)}
-            totalMB={progressTotal > 0 ? formatMB(progressTotal) : "..."}
+            totalMB={
+              progressTotal > 0 ? formatMB(progressTotal) : "..."
+            }
             label={progressLabel}
           />
         </div>
@@ -388,101 +368,47 @@ export default function UploadAppPage() {
           />
         </div>
 
-        {/* ===================== CUSTOM CATEGORY SELECTOR ===================== */}
-        <div ref={categoryRef} className="relative">
+
+        {/* Category - custom chips (si browser select) */}
+        <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Category *
           </label>
-
           {categories.length === 0 ? (
             <p className="text-xs text-amber-600">
               Hakuna categories. Endesha SQL ya categories kwenye Supabase.
             </p>
           ) : (
-            <>
-              {/* Trigger Button */}
-              <button
-                type="button"
-                disabled={loading}
-                onClick={() => setIsCategoryOpen((prev) => !prev)}
-                className={`w-full flex items-center justify-between px-4 py-3 border rounded-xl text-left transition-all duration-200
-                  ${
-                    categoryId
-                      ? "border-blue-500 bg-blue-50 text-blue-700 shadow-sm"
-                      : "border-gray-300 bg-white text-gray-500 hover:border-gray-400"
-                  }
-                  focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1
-                  disabled:opacity-60 disabled:cursor-not-allowed
-                `}
-              >
-                <span className="font-medium">
-                  {selectedCategoryName || "Chagua category..."}
-                </span>
-
-                <svg
-                  className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${
-                    isCategoryOpen ? "rotate-180" : ""
+            <div className="flex flex-wrap gap-2">
+              {categories.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  disabled={loading}
+                  onClick={() => setCategoryId(c.id)}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition border ${
+                    categoryId === c.id
+                      ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                      : "bg-white text-gray-700 border-gray-200 hover:border-blue-400"
                   }`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 9l-7 7-7-7"
-                  />
-                </svg>
-              </button>
-
-              {/* Dropdown Menu */}
-              {isCategoryOpen && (
-                <div className="absolute z-30 mt-2 w-full bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
-                  <div className="max-h-64 overflow-y-auto py-1">
-                    {categories.map((c) => (
-                      <button
-                        key={c.id}
-                        type="button"
-                        onClick={() => {
-                          setCategoryId(c.id);
-                          setIsCategoryOpen(false);
-                        }}
-                        className={`w-full flex items-center justify-between px-4 py-3 text-sm text-left transition-colors
-                          ${
-                            categoryId === c.id
-                              ? "bg-blue-50 text-blue-700 font-semibold"
-                              : "text-gray-700 hover:bg-gray-50"
-                          }
-                        `}
-                      >
-                        <span>{c.name}</span>
-                        {categoryId === c.id && (
-                          <svg
-                            className="w-5 h-5 text-blue-600"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2.5}
-                              d="M5 13l4 4L19 7"
-                            />
-                          </svg>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </>
+                  {c.name}
+                </button>
+              ))}
+            </div>
+          )}
+          {categoryId && (
+            <p className="text-xs text-gray-500 mt-2">
+              Umechagua:{" "}
+              <span className="font-medium text-blue-600">
+                {categories.find((c) => c.id === categoryId)?.name}
+              </span>
+            </p>
           )}
         </div>
-        {/* ===================== END CUSTOM SELECTOR ===================== */}
 
         {/* Package & Version */}
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -570,10 +496,7 @@ export default function UploadAppPage() {
           </label>
           <div className="flex flex-wrap gap-3">
             {screenshotPreviews.map((src, i) => (
-              <div
-                key={i}
-                className="relative w-24 h-40 rounded-xl overflow-hidden border border-gray-200 group"
-              >
+              <div key={i} className="relative w-24 h-40 rounded-xl overflow-hidden border border-gray-200 group">
                 <img
                   src={src}
                   alt={`Screenshot ${i + 1}`}

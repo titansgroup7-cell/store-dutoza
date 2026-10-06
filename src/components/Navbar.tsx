@@ -77,6 +77,12 @@ export default function Navbar() {
                 >
                   My Apps
                 </Link>
+                <Link
+                  href="/settings"
+                  className="text-gray-600 hover:text-blue-600 text-xs font-medium"
+                >
+                  Settings
+                </Link>
                 <button
                   onClick={handleLogout}
                   className="text-gray-600 hover:text-red-600 text-xs font-medium"
