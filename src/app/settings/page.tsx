@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import PushToggle from "@/components/PushToggle";
 
 export default function SettingsPage() {
   const supabase = createClient();
@@ -145,78 +146,80 @@ export default function SettingsPage() {
   return (
     <div className="max-w-lg mx-auto space-y-5">
       <div>
-        <h1 className="text-lg sm:text-xl font-bold text-gray-900">
+        <h1 className="page-title">
           Settings
         </h1>
-        <p className="text-gray-500 text-xs">Simamia akaunti yako</p>
+        <p className="page-sub">Simamia akaunti yako</p>
       </div>
 
       {message && (
-        <div className="bg-green-50 text-green-700 text-xs p-2.5 rounded-lg">
+        <div className="bg-emerald-50 text-emerald-700 text-sm p-3 rounded-xl">
           {message}
         </div>
       )}
       {error && (
-        <div className="bg-red-50 text-red-600 text-xs p-2.5 rounded-lg">
+        <div className="bg-rose-50 text-rose-700 text-sm p-3 rounded-xl">
           {error}
         </div>
       )}
 
-      <section className="bg-white border border-gray-200 rounded-xl p-4">
-        <h2 className="text-sm font-bold text-gray-900 mb-3">Wasifu</h2>
+      <PushToggle />
+
+      <section className="card p-5">
+        <h2 className="font-bold text-slate-900 mb-3">Wasifu</h2>
         <form onSubmit={handleUpdateProfile} className="space-y-3">
           <div>
-            <label className="block text-[11px] font-medium text-gray-600 mb-0.5">
+            <label className="label">
               Email
             </label>
             <input
               type="email"
               value={email}
               disabled
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs bg-gray-50 text-gray-500"
+              className="input"
             />
           </div>
           <div>
-            <label className="block text-[11px] font-medium text-gray-600 mb-0.5">
+            <label className="label">
               Jina kamili
             </label>
             <input
               type="text"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="input"
               placeholder="Jina lako"
             />
           </div>
           <div>
-            <label className="block text-[11px] font-medium text-gray-600 mb-0.5">
+            <label className="label">
               Username
             </label>
             <input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="input"
               placeholder="username"
             />
           </div>
           <button
             type="submit"
             disabled={saving}
-            className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-3 py-1.5 rounded-full text-xs font-medium"
+            className="btn-primary btn-sm"
           >
             {saving ? "Inahifadhi..." : "Hifadhi Wasifu"}
           </button>
         </form>
       </section>
 
-      <section className="bg-white border border-gray-200 rounded-xl p-4">
-        <h2 className="text-sm font-bold text-gray-900 mb-3">
+      <section className="card p-5">
+        <h2 className="font-bold text-slate-900 mb-3">
           Badilisha Password
         </h2>
         <form onSubmit={handleChangePassword} className="space-y-3">
           <div>
-            <label className="block text-[11px] font-medium text-gray-600 mb-0.5">
+            <label className="label">
               Password mpya
             </label>
             <input
@@ -225,12 +228,12 @@ export default function SettingsPage() {
               onChange={(e) => setNewPassword(e.target.value)}
               required
               minLength={6}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="input"
               placeholder="••••••••"
             />
           </div>
           <div>
-            <label className="block text-[11px] font-medium text-gray-600 mb-0.5">
+            <label className="label">
               Thibitisha password
             </label>
             <input
@@ -239,44 +242,44 @@ export default function SettingsPage() {
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
               minLength={6}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="input"
               placeholder="••••••••"
             />
           </div>
           <button
             type="submit"
             disabled={pwLoading}
-            className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-3 py-1.5 rounded-full text-xs font-medium"
+            className="btn-primary btn-sm"
           >
             {pwLoading ? "..." : "Badilisha Password"}
           </button>
         </form>
       </section>
 
-      <section className="bg-white border border-gray-200 rounded-xl p-4 space-y-2">
-        <h2 className="text-sm font-bold text-gray-900 mb-2">Sheria & Sera</h2>
+      <section className="card p-5 space-y-2">
+        <h2 className="font-bold text-slate-900 mb-2">Sheria & Sera</h2>
         <Link
           href="/terms"
-          className="block text-xs text-blue-600 hover:underline"
+          className="block text-sm text-brand-600 hover:underline"
         >
           Masharti ya Matumizi (Terms)
         </Link>
         <Link
           href="/privacy"
-          className="block text-xs text-blue-600 hover:underline"
+          className="block text-sm text-brand-600 hover:underline"
         >
           Sera ya Faragha (Privacy Policy)
         </Link>
         <Link
           href="/forgot-password"
-          className="block text-xs text-blue-600 hover:underline"
+          className="block text-sm text-brand-600 hover:underline"
         >
           Umesahau password?
         </Link>
       </section>
 
-      <section className="bg-white border border-red-200 rounded-xl p-4">
-        <h2 className="text-sm font-bold text-red-700 mb-1">Futa Akaunti</h2>
+      <section className="card !border-rose-200 p-5">
+        <h2 className="font-bold text-rose-700 mb-1">Futa Akaunti</h2>
         <p className="text-[11px] text-gray-500 mb-3">
           Hatua hii itafuta apps zako na wasifu. Haiwezi kutenduliwa.
         </p>
@@ -286,13 +289,13 @@ export default function SettingsPage() {
             value={deleteConfirm}
             onChange={(e) => setDeleteConfirm(e.target.value)}
             placeholder='Andika "FUTA" kuthibitisha'
-            className="w-full px-3 py-2 border border-red-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-red-400"
+            className="input !border-rose-200"
           />
           <button
             type="button"
             onClick={handleDeleteAccount}
             disabled={deleteLoading || deleteConfirm !== "FUTA"}
-            className="bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white px-3 py-1.5 rounded-full text-xs font-medium"
+            className="btn bg-rose-600 text-white hover:bg-rose-700 btn-sm"
           >
             {deleteLoading ? "Inafuta..." : "Futa Akaunti Yangu"}
           </button>

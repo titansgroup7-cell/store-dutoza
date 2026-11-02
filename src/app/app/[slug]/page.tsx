@@ -1,292 +1,216 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { ArrowLeft, Star, Download, HardDrive, Tag, Sparkles, LifeBuoy } from "lucide-react";
 import ShareButton from "@/components/ShareButton";
 import ScreenshotGallery from "@/components/ScreenshotGallery";
 import ReviewForm from "@/components/ReviewForm";
 import DownloadButton from "@/components/DownloadButton";
+import { formatDate, formatDownloads, formatSize } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
-export default async function AppDetailsPage({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
+export default async function AppDetailsPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const supabase = await createClient();
 
   const { data: app } = await supabase
     .from("apps")
-    .select("*, profiles(full_name, username, avatar_url)")
+    .select("*, profiles(full_name, username, avatar_url), categories(name)")
     .eq("slug", slug)
     .eq("status", "approved")
     .single();
 
-  if (!app) {
-    notFound();
-  }
+  if (!app) notFound();
 
-  // Screenshots
-  const { data: screenshots } = await supabase
-    .from("app_screenshots")
-    .select("id, image_url")
-    .eq("app_id", app.id)
-    .order("sort_order", { ascending: true });
-
-  // Reviews
-  const { data: reviews } = await supabase
-    .from("reviews")
-    .select("id, rating, comment, created_at, profiles(full_name, username, avatar_url)")
-    .eq("app_id", app.id)
-    .order("created_at", { ascending: false })
-    .limit(20);
-
-  const formatSize = (bytes: number) => {
-    if (!bytes) return "N/A";
-    const mb = bytes / 1024 / 1024;
-    return mb.toFixed(1) + " MB";
-  };
-
-  const formatDownloads = (n: number) => {
-    if (!n) return "0";
-    if (n >= 1000000) return (n / 1000000).toFixed(1) + "M+";
-    if (n >= 1000) return (n / 1000).toFixed(1) + "K+";
-    return String(n);
-  };
+  const [{ data: screenshots }, { data: reviews }] = await Promise.all([
+    supabase.from("app_screenshots").select("id, image_url").eq("app_id", app.id).order("sort_order", { ascending: true }),
+    supabase
+      .from("reviews")
+      .select("id, rating, comment, created_at, profiles(full_name, username, avatar_url)")
+      .eq("app_id", app.id)
+      .order("created_at", { ascending: false })
+      .limit(20),
+  ]);
 
   const rating = Number(app.rating_average) || 0;
   const ratingCount = app.rating_count || reviews?.length || 0;
-
-  // Star distribution
   const dist = [5, 4, 3, 2, 1].map((star) => {
-    const count = reviews?.filter((r) => r.rating === star).length || 0;
-    const pct = ratingCount > 0 ? (count / ratingCount) * 100 : 0;
-    return { star, count, pct };
+    const count = reviews?.filter((r: any) => r.rating === star).length || 0;
+    return { star, pct: ratingCount > 0 ? (count / ratingCount) * 100 : 0 };
   });
 
+  const stat = "flex flex-col items-center justify-center gap-0.5 py-3 px-2 text-center";
+
   return (
-    <div className="max-w-5xl mx-auto pb-12">
-      {/* ===== HERO HEADER ===== */}
-      <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden mb-6">
-        <div className="p-6 md:p-10">
-          <div className="flex flex-col sm:flex-row gap-6 md:gap-8">
-            {/* Big Icon */}
-            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-gray-100 flex-shrink-0 overflow-hidden shadow-md ring-1 ring-black/5">
+    <div className="max-w-4xl mx-auto space-y-5">
+      <Link href="/apps" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-brand-600">
+        <ArrowLeft className="w-4 h-4" /> Apps
+      </Link>
+
+      {/* HERO */}
+      <div className="card overflow-hidden">
+        <div className="h-24 sm:h-32 bg-gradient-to-r from-brand-600 via-violet-600 to-fuchsia-500 relative">
+          <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "radial-gradient(#fff 1px, transparent 1px)", backgroundSize: "18px 18px" }} />
+        </div>
+        <div className="px-5 sm:px-8 pb-6">
+          <div className="flex flex-col sm:flex-row gap-5 -mt-12 sm:-mt-14">
+            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-white overflow-hidden shadow-float ring-4 ring-white flex-shrink-0">
               {app.icon_url ? (
-                <img
-                  src={app.icon_url}
-                  alt={app.name}
-                  className="w-full h-full object-cover"
-                />
+                <img src={app.icon_url} alt={app.name} className="w-full h-full object-cover" />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-5xl text-gray-400">
-                  📱
+                <div className="w-full h-full flex items-center justify-center text-4xl font-extrabold text-brand-600 bg-brand-50">
+                  {app.name?.[0]?.toUpperCase()}
                 </div>
               )}
             </div>
-
-            {/* Info */}
-            <div className="flex-1 min-w-0">
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
-                {app.name}
-              </h1>
-              <p className="text-blue-600 font-medium mt-1 text-sm sm:text-base">
+            <div className="flex-1 min-w-0 sm:pt-16">
+              <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">{app.name}</h1>
+              <p className="text-brand-600 font-semibold text-sm mt-0.5">
                 {app.profiles?.full_name || app.profiles?.username || "Developer"}
               </p>
-              <p className="text-gray-500 text-sm mt-2 line-clamp-2">
-                {app.short_description}
-              </p>
-
-              {/* Stats row */}
-              <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-4 text-sm">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-yellow-500 text-lg">★</span>
-                  <span className="font-semibold text-gray-900">
-                    {rating.toFixed(1)}
-                  </span>
-                  <span className="text-gray-400">
-                    ({ratingCount} reviews)
-                  </span>
-                </div>
-                <span className="text-gray-300 hidden sm:inline">|</span>
-                <span className="text-gray-600 font-medium">
-                  {formatDownloads(app.downloads_count || 0)} downloads
-                </span>
-                <span className="text-gray-300 hidden sm:inline">|</span>
-                <span className="text-gray-600">{formatSize(app.apk_size)}</span>
-                <span className="text-gray-300 hidden sm:inline">|</span>
-                <span className="text-gray-600">v{app.version_name}</span>
-              </div>
-
-              {/* Actions */}
-              <div className="mt-6 flex flex-wrap items-start gap-3">
-                <DownloadButton apkUrl={app.apk_url} appName={app.name} appId={app.id} />
-                <ShareButton
-                  title={app.name}
-                  text={app.short_description || ""}
-                />
-              </div>
+              <p className="text-slate-500 text-sm mt-1.5">{app.short_description}</p>
             </div>
+          </div>
+
+          <div className="grid grid-cols-4 divide-x divide-slate-100 rounded-2xl bg-slate-50 mt-6">
+            <div className={stat}>
+              <span className="flex items-center gap-1 font-extrabold text-slate-900">
+                {rating.toFixed(1)} <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+              </span>
+              <span className="text-[11px] text-slate-500">{ratingCount} reviews</span>
+            </div>
+            <div className={stat}>
+              <span className="flex items-center gap-1 font-extrabold text-slate-900">
+                <Download className="w-3.5 h-3.5 text-slate-400" /> {formatDownloads(app.downloads_count, true)}
+              </span>
+              <span className="text-[11px] text-slate-500">Downloads</span>
+            </div>
+            <div className={stat}>
+              <span className="flex items-center gap-1 font-extrabold text-slate-900">
+                <HardDrive className="w-3.5 h-3.5 text-slate-400" /> {formatSize(app.apk_size)}
+              </span>
+              <span className="text-[11px] text-slate-500">Ukubwa</span>
+            </div>
+            <div className={stat}>
+              <span className="flex items-center gap-1 font-extrabold text-slate-900">
+                <Tag className="w-3.5 h-3.5 text-slate-400" /> v{app.version_name}
+              </span>
+              <span className="text-[11px] text-slate-500">{app.categories?.name || "Version"}</span>
+            </div>
+          </div>
+
+          <div className="mt-5 flex flex-wrap items-start gap-3">
+            <DownloadButton apkUrl={app.apk_url} appName={app.name} appId={app.id} />
+            <ShareButton title={app.name} text={app.short_description || ""} />
           </div>
         </div>
       </div>
 
-      {/* ===== SCREENSHOTS ===== */}
-      <section className="mb-8">
-        <h2 className="text-xl font-bold text-gray-900 mb-4 px-1">
-          Screenshots
-        </h2>
-        <ScreenshotGallery
-          screenshots={screenshots || []}
-          appName={app.name}
-        />
+      {/* WHAT'S NEW */}
+      {app.whats_new && (
+        <section className="card p-5 sm:p-6">
+          <h2 className="font-extrabold text-slate-900 flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-amber-500" /> Kipya kwenye v{app.version_name}
+          </h2>
+          <p className="text-sm text-slate-600 mt-2 whitespace-pre-line leading-relaxed">{app.whats_new}</p>
+        </section>
+      )}
+
+      {/* SCREENSHOTS */}
+      <section>
+        <h2 className="font-extrabold text-slate-900 mb-3 px-1">Screenshots</h2>
+        <ScreenshotGallery screenshots={screenshots || []} appName={app.name} />
       </section>
 
-      {/* ===== ABOUT ===== */}
-      <section className="bg-white rounded-3xl border border-gray-200 p-6 md:p-8 mb-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Kuhusu App hii</h2>
-        <p className="text-gray-600 whitespace-pre-line leading-relaxed text-[15px]">
+      {/* ABOUT */}
+      <section className="card p-5 sm:p-6">
+        <h2 className="font-extrabold text-slate-900 mb-3">Kuhusu App hii</h2>
+        <p className="text-slate-600 whitespace-pre-line leading-relaxed text-[15px]">
           {app.description || app.short_description || "Hakuna maelezo."}
         </p>
-
-        <div className="mt-8 pt-6 border-t border-gray-100 grid grid-cols-2 md:grid-cols-4 gap-5">
-          <div>
-            <p className="text-xs uppercase tracking-wide text-gray-400 mb-1">
-              Version
-            </p>
-            <p className="font-semibold text-gray-800">{app.version_name}</p>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-wide text-gray-400 mb-1">
-              Package
-            </p>
-            <p className="font-semibold text-gray-800 truncate text-sm">
-              {app.package_name || "N/A"}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-wide text-gray-400 mb-1">
-              Size
-            </p>
-            <p className="font-semibold text-gray-800">
-              {formatSize(app.apk_size)}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-wide text-gray-400 mb-1">
-              Updated
-            </p>
-            <p className="font-semibold text-gray-800">
-              {new Date(app.updated_at || app.created_at).toLocaleDateString(
-                "sw-TZ",
-                { day: "numeric", month: "short", year: "numeric" }
-              )}
-            </p>
-          </div>
+        <div className="mt-6 pt-5 border-t border-slate-100 grid grid-cols-2 md:grid-cols-4 gap-5 text-sm">
+          {[
+            ["Version", app.version_name],
+            ["Package", app.package_name || "N/A"],
+            ["Ukubwa", formatSize(app.apk_size)],
+            ["Imesasishwa", formatDate(app.updated_at || app.created_at)],
+          ].map(([k, v]) => (
+            <div key={k}>
+              <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-0.5">{k}</p>
+              <p className="font-bold text-slate-800 truncate">{v}</p>
+            </div>
+          ))}
         </div>
       </section>
 
-      {/* ===== RATINGS & REVIEWS ===== */}
-      <section className="bg-white rounded-3xl border border-gray-200 p-6 md:p-8 mb-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-6">
-          Ratings & Reviews
-        </h2>
-
-        <div className="flex flex-col md:flex-row gap-8 mb-8">
-          {/* Big rating number */}
+      {/* REVIEWS */}
+      <section className="card p-5 sm:p-6">
+        <h2 className="font-extrabold text-slate-900 mb-5">Ratings & Reviews</h2>
+        <div className="flex flex-col md:flex-row gap-8 mb-6">
           <div className="flex flex-col items-center justify-center md:w-40 flex-shrink-0">
-            <p className="text-6xl font-bold text-gray-900 leading-none">
-              {rating.toFixed(1)}
-            </p>
-            <div className="flex gap-0.5 mt-2 text-yellow-400 text-xl">
+            <p className="text-6xl font-extrabold text-slate-900 leading-none">{rating.toFixed(1)}</p>
+            <div className="flex gap-0.5 mt-2">
               {[1, 2, 3, 4, 5].map((s) => (
-                <span key={s}>{s <= Math.round(rating) ? "★" : "☆"}</span>
+                <Star key={s} className={`w-4 h-4 ${s <= Math.round(rating) ? "fill-amber-400 text-amber-400" : "text-slate-300"}`} />
               ))}
             </div>
-            <p className="text-sm text-gray-400 mt-1">
-              {ratingCount} reviews
-            </p>
+            <p className="text-xs text-slate-400 mt-1">{ratingCount} reviews</p>
           </div>
-
-          {/* Distribution bars */}
-          <div className="flex-1 space-y-2">
+          <div className="flex-1 space-y-2 self-center">
             {dist.map(({ star, pct }) => (
               <div key={star} className="flex items-center gap-3">
-                <span className="text-sm text-gray-500 w-3">{star}</span>
-                <div className="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-yellow-400 rounded-full transition-all"
-                    style={{ width: `${pct}%` }}
-                  />
+                <span className="text-xs text-slate-500 w-3 font-semibold">{star}</span>
+                <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-amber-300 to-amber-400 rounded-full" style={{ width: `${pct}%` }} />
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Write review */}
-        <div className="border-t border-gray-100 pt-6 mb-6">
-          <h3 className="font-semibold text-gray-900 mb-4">Andika Review</h3>
+        <div className="border-t border-slate-100 pt-5 mb-5">
+          <h3 className="font-bold text-slate-900 mb-3">Andika Review</h3>
           <ReviewForm appId={app.id} />
         </div>
 
-        {/* Reviews list */}
         {reviews && reviews.length > 0 && (
-          <div className="border-t border-gray-100 pt-6 space-y-5">
-            <h3 className="font-semibold text-gray-900">
-              Maoni ya watumiaji ({reviews.length})
-            </h3>
-            {reviews.map((review: any) => (
-              <div
-                key={review.id}
-                className="flex gap-3 pb-5 border-b border-gray-50 last:border-0"
-              >
-                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm flex-shrink-0">
-                  {(
-                    review.profiles?.full_name ||
-                    review.profiles?.username ||
-                    "U"
-                  )
-                    .charAt(0)
-                    .toUpperCase()}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-medium text-gray-900 text-sm">
-                      {review.profiles?.full_name ||
-                        review.profiles?.username ||
-                        "User"}
-                    </span>
-                    <span className="text-yellow-400 text-sm">
-                      {"★".repeat(review.rating)}
-                      {"☆".repeat(5 - review.rating)}
-                    </span>
+          <div className="border-t border-slate-100 pt-5 space-y-5">
+            <h3 className="font-bold text-slate-900">Maoni ya watumiaji ({reviews.length})</h3>
+            {reviews.map((review: any) => {
+              const who = review.profiles?.full_name || review.profiles?.username || "User";
+              return (
+                <div key={review.id} className="flex gap-3">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-400 to-violet-500 text-white flex items-center justify-center font-bold text-sm flex-shrink-0">
+                    {who.charAt(0).toUpperCase()}
                   </div>
-                  {review.comment && (
-                    <p className="text-gray-600 text-sm mt-1 leading-relaxed">
-                      {review.comment}
-                    </p>
-                  )}
-                  <p className="text-xs text-gray-400 mt-1">
-                    {new Date(review.created_at).toLocaleDateString("sw-TZ", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    })}
-                  </p>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-slate-900 text-sm">{who}</span>
+                      <span className="flex">
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <Star key={s} className={`w-3 h-3 ${s <= review.rating ? "fill-amber-400 text-amber-400" : "text-slate-300"}`} />
+                        ))}
+                      </span>
+                    </div>
+                    {review.comment && <p className="text-slate-600 text-sm mt-1 leading-relaxed">{review.comment}</p>}
+                    <p className="text-[11px] text-slate-400 mt-1">{formatDate(review.created_at)}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>
 
-      <Link
-        href="/apps"
-        className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700 text-sm font-medium"
-      >
-        ← Rudi kwenye Apps
+      <Link href="/support" className="card card-hover p-4 flex items-center gap-3">
+        <span className="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center">
+          <LifeBuoy className="w-5 h-5" />
+        </span>
+        <div className="flex-1">
+          <p className="text-sm font-bold text-slate-900">Una tatizo na app hii?</p>
+          <p className="text-xs text-slate-500">Wasiliana na Customer Care, tutakusaidia.</p>
+        </div>
       </Link>
     </div>
   );

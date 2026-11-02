@@ -1,185 +1,108 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
+import { SearchX } from "lucide-react";
+import AppCard from "@/components/AppCard";
 
 export const dynamic = "force-dynamic";
 
-const FALLBACK_CATEGORIES = [
-  "Games",
-  "Social",
-  "Education",
-  "Business",
-  "Tools",
-  "Entertainment",
-  "Productivity",
-  "Lifestyle",
-  "Health",
-  "Finance",
+const FALLBACK = ["Games", "Social", "Education", "Business", "Tools", "Entertainment", "Productivity", "Lifestyle", "Health", "Finance"];
+
+const SORTS = [
+  { key: "popular", label: "Maarufu", col: "downloads_count" },
+  { key: "new", label: "Mpya", col: "created_at" },
+  { key: "rating", label: "Rating", col: "rating_average" },
 ];
 
 export default async function AppsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ category?: string }>;
+  searchParams: Promise<{ category?: string; q?: string; sort?: string }>;
 }) {
-  const { category: categorySlug } = await searchParams;
+  const { category: categorySlug, q, sort } = await searchParams;
   const supabase = await createClient();
 
-  const { data: dbCategories } = await supabase
-    .from("categories")
-    .select("id, name, slug")
-    .order("name");
-
+  const { data: dbCategories } = await supabase.from("categories").select("id, name, slug").order("name");
   const categories =
     dbCategories && dbCategories.length > 0
       ? dbCategories
-      : FALLBACK_CATEGORIES.map((name) => ({
-          id: name.toLowerCase(),
-          name,
-          slug: name.toLowerCase(),
-        }));
+      : FALLBACK.map((name) => ({ id: name.toLowerCase(), name, slug: name.toLowerCase() }));
 
-  let selectedCategoryId: string | null = null;
-  let selectedCategoryName: string | null = null;
+  const selected = categorySlug
+    ? categories.find(
+        (c: any) => (c.slug || c.name.toLowerCase()) === categorySlug.toLowerCase() || c.id === categorySlug
+      )
+    : undefined;
 
-  if (categorySlug) {
-    const match = categories.find(
-      (c) =>
-        (c.slug || c.name.toLowerCase()) === categorySlug.toLowerCase() ||
-        c.id === categorySlug
-    );
-    if (match) {
-      selectedCategoryId = match.id;
-      selectedCategoryName = match.name;
-    }
-  }
+  const sortDef = SORTS.find((s) => s.key === sort) || SORTS[0];
 
   let query = supabase
     .from("apps")
     .select("*, categories(name, slug)")
     .eq("status", "approved")
-    .order("downloads_count", { ascending: false });
+    .order(sortDef.col, { ascending: false });
 
-  if (selectedCategoryId && dbCategories && dbCategories.length > 0) {
-    query = query.eq("category_id", selectedCategoryId);
-  }
+  if (selected && dbCategories && dbCategories.length > 0) query = query.eq("category_id", selected.id);
+  const term = q?.trim().replace(/[%,()]/g, " ");
+  if (term) query = query.or(`name.ilike.%${term}%,short_description.ilike.%${term}%`);
 
   const { data: apps } = await query;
-  const filteredApps = apps || [];
+  const list = apps || [];
 
-  const formatDownloads = (n: number) => {
-    if (!n) return "0";
-    if (n >= 1000000) return (n / 1000000).toFixed(1) + "M";
-    if (n >= 1000) return (n / 1000).toFixed(1) + "K";
-    return String(n);
+  const href = (extra: Record<string, string | undefined>) => {
+    const p = new URLSearchParams();
+    const base: Record<string, string | undefined> = { category: categorySlug, q, sort, ...extra };
+    Object.entries(base).forEach(([k, v]) => v && p.set(k, v));
+    const s = p.toString();
+    return s ? `/apps?${s}` : "/apps";
   };
 
   return (
-    <div>
-      <h1 className="text-lg sm:text-xl font-bold text-gray-900 mb-0.5">
-        {selectedCategoryName ? selectedCategoryName : "Apps Zote"}
-      </h1>
-      <p className="text-gray-500 text-xs mb-3">
-        {selectedCategoryName
-          ? `Apps za ${selectedCategoryName}`
-          : "Pakua apps bora za Dutoza"}
-      </p>
+    <div className="space-y-5">
+      <div>
+        <h1 className="page-title">{term ? `Matokeo ya "${term}"` : selected ? selected.name : "Apps Zote"}</h1>
+        <p className="page-sub">{list.length} apps zimepatikana</p>
+      </div>
 
-      {/* Compact category chips */}
-      <div className="flex gap-1.5 overflow-x-auto pb-2 mb-3 scrollbar-hide -mx-1 px-1">
-        <Link
-          href="/apps"
-          className={`flex-shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium transition ${
-            !categorySlug
-              ? "bg-blue-600 text-white"
-              : "bg-white border border-gray-200 text-gray-700 hover:border-blue-400"
-          }`}
-        >
-          Zote
-        </Link>
-        {categories.map((cat) => {
+      <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 -mx-4 px-4">
+        <Link href={href({ category: undefined })} className={!categorySlug ? "chip-active" : "chip"}>Zote</Link>
+        {categories.map((cat: any) => {
           const slug = cat.slug || cat.name.toLowerCase();
-          const active =
-            categorySlug?.toLowerCase() === slug.toLowerCase() ||
-            categorySlug === cat.id;
+          const active = categorySlug?.toLowerCase() === slug.toLowerCase() || categorySlug === cat.id;
           return (
-            <Link
-              key={cat.id}
-              href={`/apps?category=${encodeURIComponent(slug)}`}
-              className={`flex-shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium transition ${
-                active
-                  ? "bg-blue-600 text-white"
-                  : "bg-white border border-gray-200 text-gray-700 hover:border-blue-400"
-              }`}
-            >
+            <Link key={cat.id} href={href({ category: slug })} className={active ? "chip-active" : "chip"}>
               {cat.name}
             </Link>
           );
         })}
       </div>
 
-      {!filteredApps || filteredApps.length === 0 ? (
-        <div className="bg-white border border-gray-200 rounded-xl p-8 text-center">
-          <div className="text-2xl mb-2">📱</div>
-          <p className="text-gray-500 text-xs">
-            {selectedCategoryName
-              ? `Hakuna apps katika "${selectedCategoryName}".`
-              : "Bado hakuna apps zilizoidhinishwa."}
-          </p>
+      <div className="flex items-center gap-2 text-xs">
+        <span className="text-slate-400 font-semibold">Panga kwa:</span>
+        {SORTS.map((s) => (
           <Link
-            href="/developer/upload"
-            className="inline-block mt-2 text-blue-600 font-medium text-[11px] hover:underline"
+            key={s.key}
+            href={href({ sort: s.key })}
+            className={`px-3 py-1 rounded-full font-semibold transition ${
+              sortDef.key === s.key ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-100"
+            }`}
           >
-            Pakia app →
+            {s.label}
           </Link>
+        ))}
+      </div>
+
+      {list.length === 0 ? (
+        <div className="card p-12 text-center">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mb-3">
+            <SearchX className="w-7 h-7" />
+          </div>
+          <p className="font-bold text-slate-900">Hakuna apps zilizopatikana</p>
+          <p className="text-sm text-slate-500 mt-1">Jaribu neno lingine au category tofauti.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-          {filteredApps.map((app: any) => (
-            <Link
-              key={app.id}
-              href={`/app/${app.slug}`}
-              className="group bg-white border border-gray-200 rounded-xl p-2.5 hover:shadow-md hover:border-blue-200 transition-all"
-            >
-              <div className="flex gap-2.5">
-                <div className="w-11 h-11 rounded-lg bg-gray-100 flex-shrink-0 overflow-hidden ring-1 ring-black/5">
-                  {app.icon_url ? (
-                    <img
-                      src={app.icon_url}
-                      alt={app.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-lg text-gray-400">
-                      📱
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-gray-900 text-[13px] leading-tight truncate group-hover:text-blue-600 transition">
-                    {app.name}
-                  </h3>
-                  <p className="text-[11px] text-gray-500 mt-0.5 line-clamp-1">
-                    {app.short_description}
-                  </p>
-                  <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                    {app.categories?.name && (
-                      <span className="text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded-full font-medium">
-                        {app.categories.name}
-                      </span>
-                    )}
-                    <span className="inline-flex items-center gap-0.5 text-[11px] font-medium text-gray-700">
-                      <span className="text-yellow-500 text-[10px]">★</span>
-                      {Number(app.rating_average || 0).toFixed(1)}
-                    </span>
-                    <span className="text-gray-300 text-[10px]">·</span>
-                    <span className="text-[11px] text-gray-500">
-                      {formatDownloads(app.downloads_count || 0)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </Link>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {list.map((app: any, i: number) => (
+            <AppCard key={app.id} app={app} index={i} />
           ))}
         </div>
       )}

@@ -3,55 +3,10 @@
 import { useState, useRef, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { ArrowLeft, FileUp, ImagePlus, X, UploadCloud } from "lucide-react";
 import ProgressBar from "@/components/ProgressBar";
-
-function formatMB(bytes: number) {
-  return (bytes / 1024 / 1024).toFixed(2);
-}
-
-/** Upload with XHR for real progress tracking */
-function uploadWithProgress(
-  supabaseUrl: string,
-  anonKey: string,
-  bucket: string,
-  path: string,
-  file: File,
-  accessToken: string,
-  onProgress: (loaded: number, total: number) => void
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    const url = `${supabaseUrl}/storage/v1/object/${bucket}/${path}`;
-
-    xhr.open("POST", url);
-    xhr.setRequestHeader("Authorization", `Bearer ${accessToken}`);
-    xhr.setRequestHeader("apikey", anonKey);
-    xhr.setRequestHeader("x-upsert", "true");
-
-    xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable) {
-        onProgress(e.loaded, e.total);
-      }
-    };
-
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        resolve();
-      } else {
-        let msg = `Upload failed (${xhr.status})`;
-        try {
-          const j = JSON.parse(xhr.responseText);
-          if (j.message) msg = j.message;
-          if (j.error) msg = j.error;
-        } catch {}
-        reject(new Error(msg));
-      }
-    };
-
-    xhr.onerror = () => reject(new Error("Network error during upload"));
-    xhr.send(file);
-  });
-}
+import { formatMB, slugify, uploadWithProgress } from "@/lib/upload";
 
 export default function UploadAppPage() {
   const supabase = createClient();
@@ -74,42 +29,33 @@ export default function UploadAppPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
-  // Progress state
   const [progressLabel, setProgressLabel] = useState("");
   const [progressPct, setProgressPct] = useState(0);
   const [progressLoaded, setProgressLoaded] = useState(0);
   const [progressTotal, setProgressTotal] = useState(0);
 
   const iconInputRef = useRef<HTMLInputElement>(null);
+  const ssInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     (async () => {
       const { data } = await supabase.from("categories").select("id, name").order("name");
       if (data) setCategories(data);
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const ssInputRef = useRef<HTMLInputElement>(null);
-
-  const handleIconChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] || null;
-    setIconFile(file);
-    if (file) {
-      setIconPreview(URL.createObjectURL(file));
-    } else {
-      setIconPreview(null);
-    }
+  const onProgress = (loaded: number, total: number) => {
+    setProgressLoaded(loaded);
+    setProgressTotal(total);
+    setProgressPct((loaded / total) * 100);
   };
 
   const handleScreenshotsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []).slice(0, 8);
-    setScreenshotFiles(files);
-    setScreenshotPreviews(files.map((f) => URL.createObjectURL(f)));
-  };
-
-  const removeScreenshot = (index: number) => {
-    setScreenshotFiles((prev) => prev.filter((_, i) => i !== index));
-    setScreenshotPreviews((prev) => prev.filter((_, i) => i !== index));
+    const files = Array.from(e.target.files || []).slice(0, 8 - screenshotFiles.length);
+    setScreenshotFiles((p) => [...p, ...files]);
+    setScreenshotPreviews((p) => [...p, ...files.map((f) => URL.createObjectURL(f))]);
+    e.target.value = "";
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -123,98 +69,38 @@ export default function UploadAppPage() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-
-      if (!user) {
-        setError("Tafadhali ingia kwanza ili upakie app.");
-        setLoading(false);
-        return;
-      }
-
-      if (!apkFile) {
-        setError("Tafadhali chagua faili la APK.");
-        setLoading(false);
-        return;
-      }
-
-      if (!iconFile) {
-        setError("Tafadhali chagua icon ya app (lazima).");
-        setLoading(false);
-        return;
-      }
-
-      if (!categoryId) {
-        setError("Tafadhali chagua category.");
-        setLoading(false);
-        return;
-      }
+      if (!user) throw new Error("Tafadhali ingia kwanza ili upakie app.");
+      if (!apkFile) throw new Error("Tafadhali chagua faili la APK.");
+      if (!iconFile) throw new Error("Tafadhali chagua icon ya app (lazima).");
+      if (!categoryId) throw new Error("Tafadhali chagua category.");
 
       const {
         data: { session },
       } = await supabase.auth.getSession();
       const token = session?.access_token;
-      if (!token) {
-        setError("Session imeisha. Ingia tena.");
-        setLoading(false);
-        return;
-      }
+      if (!token) throw new Error("Session imeisha. Ingia tena.");
 
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-      const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+      // slug ya kipekee
+      let slug = slugify(name) || "app";
+      const { data: existing } = await supabase.from("apps").select("id").eq("slug", slug).maybeSingle();
+      if (existing) slug = `${slug}-${Math.random().toString(36).slice(2, 6)}`;
 
-      const slug = name
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/(^-|-$)/g, "");
+      const stamp = Date.now();
 
-      // --- 1. Upload APK with progress ---
       setProgressLabel("Inapakia APK...");
-      const apkFileName = `${user.id}/${slug}-${versionName || "1.0"}.apk`;
-      await uploadWithProgress(
-        supabaseUrl,
-        anonKey,
-        "apps",
-        apkFileName,
-        apkFile,
-        token,
-        (loaded, total) => {
-          setProgressLoaded(loaded);
-          setProgressTotal(total);
-          setProgressPct((loaded / total) * 100);
-        }
-      );
+      const apkPath = `${user.id}/${slug}-${versionName || "1.0"}-${stamp}.apk`;
+      await uploadWithProgress("apps", apkPath, apkFile, token, onProgress);
+      const apkUrl = supabase.storage.from("apps").getPublicUrl(apkPath).data.publicUrl;
 
-      const { data: apkUrlData } = supabase.storage
-        .from("apps")
-        .getPublicUrl(apkFileName);
-
-      // --- 2. Upload Icon (required) ---
       setProgressLabel("Inapakia Icon...");
       setProgressPct(0);
       const iconExt = iconFile.name.split(".").pop()?.toLowerCase() || "png";
-      const iconFileName = `${user.id}/${slug}-icon-${Date.now()}.${iconExt}`;
-      await uploadWithProgress(
-        supabaseUrl,
-        anonKey,
-        "screenshots",
-        iconFileName,
-        iconFile,
-        token,
-        (loaded, total) => {
-          setProgressLoaded(loaded);
-          setProgressTotal(total);
-          setProgressPct((loaded / total) * 100);
-        }
-      );
-      const { data: iconUrlData } = supabase.storage
-        .from("screenshots")
-        .getPublicUrl(iconFileName);
-      const iconUrl = iconUrlData.publicUrl;
-      if (!iconUrl) throw new Error("Icon URL haikupatikana");
+      const iconPath = `${user.id}/${slug}-icon-${stamp}.${iconExt}`;
+      await uploadWithProgress("screenshots", iconPath, iconFile, token, onProgress);
+      const iconUrl = supabase.storage.from("screenshots").getPublicUrl(iconPath).data.publicUrl;
 
-      // --- 3. Insert app row ---
       setProgressLabel("Inahifadhi taarifa...");
       setProgressPct(90);
-
       const { data: insertedApp, error: insertError } = await supabase
         .from("apps")
         .insert({
@@ -227,58 +113,32 @@ export default function UploadAppPage() {
           version_name: versionName || "1.0",
           version_code: parseInt(versionCode) || 1,
           category_id: categoryId || null,
-          apk_url: apkUrlData.publicUrl,
+          apk_url: apkUrl,
           apk_size: apkFile.size,
           icon_url: iconUrl,
           status: "pending",
         })
         .select("id")
         .single();
-
       if (insertError) throw new Error(insertError.message);
 
-      // --- 4. Upload screenshots ---
-      if (screenshotFiles.length > 0 && insertedApp?.id) {
-        for (let i = 0; i < screenshotFiles.length; i++) {
-          const file = screenshotFiles[i];
-          setProgressLabel(
-            `Inapakia Screenshot ${i + 1}/${screenshotFiles.length}...`
-          );
-          setProgressPct(0);
-
-          const ssName = `${user.id}/${slug}-ss-${i}-${Date.now()}.jpg`;
-          await uploadWithProgress(
-            supabaseUrl,
-            anonKey,
-            "screenshots",
-            ssName,
-            file,
-            token,
-            (loaded, total) => {
-              setProgressLoaded(loaded);
-              setProgressTotal(total);
-              setProgressPct((loaded / total) * 100);
-            }
-          );
-
-          const { data: ssUrl } = supabase.storage
-            .from("screenshots")
-            .getPublicUrl(ssName);
-
-          await supabase.from("app_screenshots").insert({
-            app_id: insertedApp.id,
-            image_url: ssUrl.publicUrl,
-            sort_order: i,
-          });
-        }
+      for (let i = 0; i < screenshotFiles.length; i++) {
+        setProgressLabel(`Inapakia Screenshot ${i + 1}/${screenshotFiles.length}...`);
+        setProgressPct(0);
+        const ssName = `${user.id}/${slug}-ss-${stamp}-${i}.jpg`;
+        await uploadWithProgress("screenshots", ssName, screenshotFiles[i], token, onProgress);
+        const { data: ssUrl } = supabase.storage.from("screenshots").getPublicUrl(ssName);
+        await supabase.from("app_screenshots").insert({
+          app_id: insertedApp!.id,
+          image_url: ssUrl.publicUrl,
+          sort_order: i,
+        });
       }
 
       setProgressPct(100);
       setProgressLabel("Imekamilika!");
       setSuccess(true);
-      setTimeout(() => {
-        router.push("/developer/apps");
-      }, 2000);
+      setTimeout(() => router.push("/developer/apps"), 2000);
     } catch (err: any) {
       setError(err.message || "Kuna hitilafu imetokea");
     } finally {
@@ -287,280 +147,143 @@ export default function UploadAppPage() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto pb-12">
-      <h1 className="text-3xl font-bold text-gray-900 mb-2">Pakia App Mpya</h1>
-      <p className="text-gray-500 mb-8">
-        Jaza taarifa, icon, screenshots na APK
-      </p>
+    <div className="max-w-2xl mx-auto pb-10">
+      <Link href="/developer" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-brand-600 mb-3">
+        <ArrowLeft className="w-4 h-4" /> Dashboard
+      </Link>
+      <h1 className="page-title">Pakia App Mpya</h1>
+      <p className="page-sub mb-6">Jaza taarifa, icon, screenshots na APK. Admin ataikagua kabla ya kuwa live.</p>
 
-      {error && (
-        <div className="bg-red-50 text-red-600 p-4 rounded-xl mb-6 text-sm">
-          {error}
-        </div>
-      )}
-
+      {error && <div className="bg-rose-50 text-rose-700 p-3.5 rounded-xl mb-5 text-sm">{error}</div>}
       {success && (
-        <div className="bg-green-50 text-green-700 p-4 rounded-xl mb-6 text-sm font-medium">
-          App imepakia kikamilifu! Inasubiri idhini ya admin...
+        <div className="bg-emerald-50 text-emerald-700 p-3.5 rounded-xl mb-5 text-sm font-semibold">
+          App imepakiwa! Admin amejulishwa, utapata notification akimaliza kukagua.
         </div>
       )}
-
-      {/* Progress panel */}
       {loading && (
-        <div className="bg-blue-50 border border-blue-100 rounded-2xl p-5 mb-6">
+        <div className="card p-4 mb-5">
           <ProgressBar
             percent={progressPct}
             loadedMB={formatMB(progressLoaded)}
-            totalMB={
-              progressTotal > 0 ? formatMB(progressTotal) : "..."
-            }
+            totalMB={progressTotal > 0 ? formatMB(progressTotal) : "..."}
             label={progressLabel}
           />
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* App Name */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Jina la App *
-          </label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            disabled={loading}
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Mfano: Dutoza Chat"
-          />
-        </div>
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <section className="card p-5 space-y-4">
+          <h2 className="font-bold text-slate-900">Taarifa za app</h2>
+          <div>
+            <label className="label">Jina la App *</label>
+            <input className="input" value={name} onChange={(e) => setName(e.target.value)} required disabled={loading} placeholder="Mfano: Dutoza Chat" />
+          </div>
+          <div>
+            <label className="label">Maelezo Mafupi *</label>
+            <input className="input" value={shortDescription} onChange={(e) => setShortDescription(e.target.value)} required maxLength={80} disabled={loading} placeholder="Max herufi 80" />
+          </div>
+          <div>
+            <label className="label">Maelezo Kamili</label>
+            <textarea className="input" rows={4} value={description} onChange={(e) => setDescription(e.target.value)} disabled={loading} placeholder="Andika maelezo kamili ya app yako..." />
+          </div>
+          <div>
+            <label className="label">Category *</label>
+            {categories.length === 0 ? (
+              <p className="text-xs text-amber-600">Hakuna categories. Endesha SQL ya categories kwenye Supabase.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {categories.map((c) => (
+                  <button key={c.id} type="button" disabled={loading} onClick={() => setCategoryId(c.id)} className={categoryId === c.id ? "chip-active" : "chip"}>
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
 
-        {/* Short Description */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Maelezo Mafupi *
-          </label>
-          <input
-            type="text"
-            value={shortDescription}
-            onChange={(e) => setShortDescription(e.target.value)}
-            required
-            maxLength={80}
-            disabled={loading}
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Maelezo mafupi (max 80 characters)"
-          />
-        </div>
-
-        {/* Full Description */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Maelezo Kamili
-          </label>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={4}
-            disabled={loading}
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Andika maelezo kamili ya app yako..."
-          />
-        </div>
-
-
-        {/* Category - custom chips (si browser select) */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Category *
-          </label>
-          {categories.length === 0 ? (
-            <p className="text-xs text-amber-600">
-              Hakuna categories. Endesha SQL ya categories kwenye Supabase.
-            </p>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {categories.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  disabled={loading}
-                  onClick={() => setCategoryId(c.id)}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition border ${
-                    categoryId === c.id
-                      ? "bg-blue-600 text-white border-blue-600 shadow-sm"
-                      : "bg-white text-gray-700 border-gray-200 hover:border-blue-400"
-                  }`}
-                >
-                  {c.name}
-                </button>
-              ))}
+        <section className="card p-5 space-y-4">
+          <h2 className="font-bold text-slate-900">Version & APK</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="label">Package Name</label>
+              <input className="input" value={packageName} onChange={(e) => setPackageName(e.target.value)} disabled={loading} placeholder="com.dutoza.app" />
             </div>
-          )}
-          {categoryId && (
-            <p className="text-xs text-gray-500 mt-2">
-              Umechagua:{" "}
-              <span className="font-medium text-blue-600">
-                {categories.find((c) => c.id === categoryId)?.name}
-              </span>
-            </p>
-          )}
-        </div>
-
-        {/* Package & Version */}
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Package Name
-            </label>
-            <input
-              type="text"
-              value={packageName}
-              onChange={(e) => setPackageName(e.target.value)}
-              disabled={loading}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="com.dutoza.app"
-            />
+            <div>
+              <label className="label">Version Name *</label>
+              <input className="input" value={versionName} onChange={(e) => setVersionName(e.target.value)} required disabled={loading} placeholder="1.0.0" />
+            </div>
+            <div>
+              <label className="label">Version Code</label>
+              <input type="number" className="input" value={versionCode} onChange={(e) => setVersionCode(e.target.value)} disabled={loading} placeholder="1" />
+            </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Version Name *
-            </label>
-            <input
-              type="text"
-              value={versionName}
-              onChange={(e) => setVersionName(e.target.value)}
-              required
-              disabled={loading}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="1.0.0"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Version Code
-            </label>
-            <input
-              type="number"
-              value={versionCode}
-              onChange={(e) => setVersionCode(e.target.value)}
-              disabled={loading}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="1"
-            />
-          </div>
-        </div>
-
-        {/* Icon Upload */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            App Icon *
+          <label className="flex items-center gap-3 rounded-xl border-2 border-dashed border-slate-200 hover:border-brand-400 p-4 cursor-pointer transition">
+            <FileUp className="w-5 h-5 text-brand-600" />
+            <span className="text-sm text-slate-600 flex-1 truncate">
+              {apkFile ? `${apkFile.name} · ${formatMB(apkFile.size)} MB` : "Chagua faili la .apk *"}
+            </span>
+            <input type="file" accept=".apk,application/vnd.android.package-archive" required disabled={loading} className="hidden" onChange={(e) => setApkFile(e.target.files?.[0] || null)} />
           </label>
+        </section>
+
+        <section className="card p-5 space-y-4">
+          <h2 className="font-bold text-slate-900">Icon & Screenshots</h2>
           <div className="flex items-center gap-4">
-            <div
+            <button
+              type="button"
               onClick={() => !loading && iconInputRef.current?.click()}
-              className="w-24 h-24 rounded-2xl border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer hover:border-blue-400 overflow-hidden bg-gray-50 flex-shrink-0"
+              className="w-20 h-20 rounded-2xl border-2 border-dashed border-slate-300 hover:border-brand-400 overflow-hidden bg-slate-50 flex items-center justify-center text-xs text-slate-400 flex-shrink-0"
             >
-              {iconPreview ? (
-                <img
-                  src={iconPreview}
-                  alt="Icon preview"
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <span className="text-gray-400 text-xs text-center px-2">
-                  + Icon
-                </span>
-              )}
-            </div>
-            <div className="text-sm text-gray-500">
-              <p>PNG au JPG, angalau 512×512</p>
-              <p className="text-xs mt-1">Bonyeza kuongeza icon</p>
-            </div>
+              {iconPreview ? <img src={iconPreview} alt="" className="w-full h-full object-cover" /> : "+ Icon *"}
+            </button>
+            <p className="text-xs text-slate-500">PNG au JPG, angalau 512×512. Bonyeza kuchagua.</p>
             <input
               ref={iconInputRef}
               type="file"
               accept="image/png,image/jpeg,image/webp"
-              onChange={handleIconChange}
               className="hidden"
-              disabled={loading}
+              onChange={(e) => {
+                const f = e.target.files?.[0] || null;
+                setIconFile(f);
+                setIconPreview(f ? URL.createObjectURL(f) : null);
+              }}
             />
           </div>
-        </div>
 
-        {/* Screenshots */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Screenshots (hadi 8)
-          </label>
           <div className="flex flex-wrap gap-3">
             {screenshotPreviews.map((src, i) => (
-              <div key={i} className="relative w-24 h-40 rounded-xl overflow-hidden border border-gray-200 group">
-                <img
-                  src={src}
-                  alt={`Screenshot ${i + 1}`}
-                  className="w-full h-full object-cover"
-                />
+              <div key={src} className="relative w-24 h-40 rounded-xl overflow-hidden border border-slate-200">
+                <img src={src} alt="" className="w-full h-full object-cover" />
                 <button
                   type="button"
-                  onClick={() => removeScreenshot(i)}
                   disabled={loading}
-                  className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 transition"
+                  onClick={() => {
+                    setScreenshotFiles((p) => p.filter((_, j) => j !== i));
+                    setScreenshotPreviews((p) => p.filter((_, j) => j !== i));
+                  }}
+                  className="absolute top-1 right-1 w-6 h-6 bg-black/60 hover:bg-rose-600 text-white rounded-full flex items-center justify-center"
                 >
-                  ×
+                  <X className="w-3.5 h-3.5" />
                 </button>
               </div>
             ))}
             {screenshotFiles.length < 8 && (
               <button
                 type="button"
-                onClick={() => !loading && ssInputRef.current?.click()}
                 disabled={loading}
-                className="w-24 h-40 rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:border-blue-400 hover:text-blue-500 transition text-xs gap-1"
+                onClick={() => ssInputRef.current?.click()}
+                className="w-24 h-40 rounded-xl border-2 border-dashed border-slate-200 hover:border-brand-400 text-slate-400 hover:text-brand-600 flex flex-col items-center justify-center gap-1 text-xs transition"
               >
-                <span className="text-2xl">+</span>
-                Screenshot
+                <ImagePlus className="w-5 h-5" /> Screenshot
               </button>
             )}
+            <input ref={ssInputRef} type="file" multiple accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleScreenshotsChange} />
           </div>
-          <input
-            ref={ssInputRef}
-            type="file"
-            accept="image/png,image/jpeg,image/webp"
-            multiple
-            onChange={handleScreenshotsChange}
-            className="hidden"
-            disabled={loading}
-          />
-        </div>
+        </section>
 
-        {/* APK File */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Faili la APK *
-          </label>
-          <input
-            type="file"
-            accept=".apk,application/vnd.android.package-archive"
-            required
-            disabled={loading}
-            onChange={(e) => setApkFile(e.target.files?.[0] || null)}
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700"
-          />
-          {apkFile && (
-            <p className="text-xs text-gray-500 mt-1">
-              {apkFile.name} · {formatMB(apkFile.size)} MB
-            </p>
-          )}
-        </div>
-
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-3.5 rounded-xl transition text-base"
-        >
-          {loading ? "Inapakia..." : "Pakia App"}
+        <button type="submit" disabled={loading} className="btn-primary w-full !py-3.5 text-base">
+          <UploadCloud className="w-5 h-5" /> {loading ? "Inapakia..." : "Pakia App"}
         </button>
       </form>
     </div>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Mail, Lock } from "lucide-react";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -18,93 +19,55 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       setError(error.message);
       setLoading(false);
-    } else {
-      router.push("/");
-      router.refresh();
+      return;
     }
+    const next = new URLSearchParams(window.location.search).get("next");
+    router.push(next && next.startsWith("/") ? next : "/");
+    router.refresh();
   };
 
   return (
-    <div className="max-w-md mx-auto mt-6">
-      <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-        <h1 className="text-lg font-bold text-gray-900 mb-1">Ingia</h1>
-        <p className="text-gray-500 text-xs mb-4">Karibu tena kwenye Store Dutoza</p>
+    <div className="max-w-md mx-auto mt-4 sm:mt-10">
+      <div className="card p-6 sm:p-8">
+        <img src="/icon.svg" alt="" className="w-12 h-12 rounded-2xl shadow-glow mb-4" />
+        <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">Karibu tena</h1>
+        <p className="text-sm text-slate-500 mt-1 mb-6">Ingia kwenye Store Dutoza</p>
 
-        {error && (
-          <div className="bg-red-50 text-red-600 text-xs p-2.5 rounded-lg mb-3">
-            {error}
-          </div>
-        )}
+        {error && <div className="bg-rose-50 text-rose-700 text-sm p-3 rounded-xl mb-4">{error}</div>}
 
-        <form onSubmit={handleLogin} className="space-y-3">
+        <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-[11px] font-medium text-gray-600 mb-0.5">
-              Email
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
-              placeholder="email@example.com"
-            />
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between mb-0.5">
-              <label className="block text-[11px] font-medium text-gray-600">
-                Password
-              </label>
-              <Link
-                href="/forgot-password"
-                className="text-[11px] text-blue-600 hover:underline"
-              >
-                Umesahau?
-              </Link>
+            <label className="label">Email</label>
+            <div className="relative">
+              <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="input !pl-10" placeholder="email@example.com" />
             </div>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
-              placeholder="••••••••"
-            />
           </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-2 rounded-full text-xs transition"
-          >
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-semibold text-slate-600">Password</label>
+              <Link href="/forgot-password" className="text-xs text-brand-600 font-semibold hover:underline">Umesahau?</Link>
+            </div>
+            <div className="relative">
+              <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required className="input !pl-10" placeholder="••••••••" />
+            </div>
+          </div>
+          <button type="submit" disabled={loading} className="btn-primary w-full !py-3">
             {loading ? "Inaingia..." : "Ingia"}
           </button>
         </form>
 
-        <p className="text-center text-[11px] text-gray-500 mt-4">
-          Huna account?{" "}
-          <Link href="/register" className="text-blue-600 font-medium">
-            Jisajili
-          </Link>
+        <p className="text-center text-sm text-slate-500 mt-6">
+          Huna account? <Link href="/register" className="text-brand-600 font-bold">Jisajili</Link>
         </p>
-        <p className="text-center text-[10px] text-gray-400 mt-2">
-          Kwa kuingia unakubali{" "}
-          <Link href="/terms" className="text-blue-600 hover:underline">
-            Masharti
-          </Link>{" "}
-          na{" "}
-          <Link href="/privacy" className="text-blue-600 hover:underline">
-            Faragha
-          </Link>
+        <p className="text-center text-[11px] text-slate-400 mt-3">
+          Kwa kuingia unakubali <Link href="/terms" className="text-brand-600 hover:underline">Masharti</Link> na{" "}
+          <Link href="/privacy" className="text-brand-600 hover:underline">Faragha</Link>
         </p>
       </div>
     </div>

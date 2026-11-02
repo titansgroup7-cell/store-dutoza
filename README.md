@@ -1,43 +1,19 @@
 # Store Dutoza
 
-Official App Store for Dutoza apps.
+Official App Store ya Dutoza — Next.js 15 + Supabase + Tailwind.
 
-## Tech Stack
+## Vipengele
+- Muonekano wa kisasa (glass navbar, mobile bottom-nav, hero, kadi za apps)
+- Developer: pakia app, **hariri app na kutuma sasisho kwa idhini**, dashboard
+- Admin Panel: apps mpya, masasisho (yenye "kabla → baada"), msaada, apps zote
+- **Notifications** ndani ya app (realtime) + **Push notifications** za simu
+- **Customer Care**: maombi ya msaada na chat ya moja kwa moja
+- Kinga ya database: mabadiliko hayafiki live bila idhini ya admin
 
-- **Frontend**: Next.js 15 + TypeScript + Tailwind CSS
-- **Backend**: Supabase (Auth + Database + Storage)
-- **Mobile**: Flutter (coming soon)
+## Kuwasha
+Fuata **SETUP.md** (SQL, VAPID keys, webhook).
 
-## Getting Started
-
-1. Install dependencies:
 ```bash
 npm install
-```
-
-2. Run development server:
-```bash
 npm run dev
 ```
-
-3. Open [http://localhost:3000](http://localhost:3000)
-
-## Environment Variables
-
-Already configured in `.env.local`:
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-
-## Features
-
-- [x] Home page
-- [x] Login / Register
-- [x] Developer Portal
-- [ ] Upload APK
-- [ ] App details page
-- [ ] Admin approval
-- [ ] Android App (Flutter)
-
-## Author
-
-Dutoza Team
